@@ -5,6 +5,17 @@ from pprint import pprint
 from typing import Any
 
 from agents import Agent, function_tool, Runner, Tool, WebSearchTool
+from coding import (
+    append_file_tool,
+    delete_file_tool,
+    make_directory_tool,
+    read_file_tool,
+    remove_directory_tool,
+    rename_file_tool,
+    run_shell_tool,
+    tree_tool,
+    write_file_tool,
+)
 from loguru import logger
 from websearch import read_website_tool, web_search_tool
 
@@ -125,42 +136,43 @@ def get_user_plan_approval_tool(plan: str) -> dict[str, Any]:
     return get_user_plan_approval(plan)
 
 
+def create_plan(task: str, user_feedback: str) -> str:
+    planner = Agent(
+        name="Planner",
+        instructions=(
+            "Your job is to create a high-level plan for the given task.\n"
+            # "DON'T write any code yet.\n"
+            # "Break down the task into clear, actionable steps.\n"
+            # "Be specific about what needs to be done, but don't actually do it yet.\n"
+            # "Output your plan as a numbered list with clear descriptions of each step.\n"
+        ),
+        tools=[researcher_tool],
+        model="o4-mini",
+    )
+
+    while True:
+        print(f"\n🤔 Creating plan for task: {task}")
+        plan_result = Runner.run_sync(
+            starting_agent=planner,
+            input=f"Create a plan for this task: {task}\n\nHere is the user feedback from the previous iteration: {user_feedback}",
+            max_turns=1,
+        )
+
+        approval_result = get_user_plan_approval(plan_result.final_output)
+        if approval_result["approval"]:
+            return plan_result.final_output
+        else:
+            logger.debug(f"\n📝 Plan needs revision: {approval_result['suggestions']}")
+            planner.instructions += f"\n\nYour previous plan was:\n{plan_result.final_output}\n\nThe user provided this feedback on your previous plan: {approval_result['suggestions']}\nPlease revise the plan accordingly."
+
+
 def plan_and_solve(task: str, tools: list[Tool]) -> bool:
     """Creates a plan, gets user approval, then executes it with iterative feedback."""
 
     user_feedback = ""
     while True:
         # Phase 1: Plan creation and approval
-        planner = Agent(
-            name="Planner",
-            instructions=(
-                "Your job is to create a high-level plan for the given task. "
-                "DON'T write any code yet."
-                "Break down the task into clear, actionable steps. "
-                "Be specific about what needs to be done, but don't actually do it yet. "
-                "Output your plan as a numbered list with clear descriptions of each step."
-            ),
-            model="gpt-4.1",
-        )
-
-        plan_approved = False
-        while not plan_approved:
-            print(f"\n🤔 Creating plan for task: {task}")
-            plan_result = Runner.run_sync(
-                starting_agent=planner,
-                input=f"Create a plan for this task: {task}\n\nHere is the user feedback from the previous iteration: {user_feedback}",
-            )
-
-            approval_result = get_user_plan_approval(plan_result.final_output)
-            if approval_result["approval"]:
-                plan_approved = True
-                approved_plan = plan_result.final_output
-            else:
-                logger.debug(
-                    f"\n📝 Plan needs revision: {approval_result['suggestions']}"
-                )
-                planner.instructions += f"\n\nYour previous plan was:\n{plan_result.final_output}\n\nThe user provided this feedback on your previous plan: {approval_result['suggestions']}\nPlease revise the plan accordingly."
-
+        approved_plan = create_plan(task, user_feedback)
         print(f"\n✅ Plan approved! Proceeding with execution...")
 
         # Phase 2: Plan execution
@@ -201,11 +213,26 @@ def plan_and_solve(task: str, tools: list[Tool]) -> bool:
 
 
 if __name__ == "__main__":
-    from agents.run import Runner
 
-    result = Runner.run_sync(
-        starting_agent=researcher,
-        input="find me the paper where they show that surge in Russian wages in 2022-2023 is explained as post-COVID recovery. the authors are from Higher School of Economics",
-        max_turns=1000,
-    )
-    print(result.final_output)
+    # result = Runner.run_sync(
+    #     starting_agent=researcher,
+    #     input="find me the paper where they show that surge in Russian wages in 2022-2023 is explained as post-COVID recovery. the authors are from Higher School of Economics",
+    #     max_turns=1000,
+    # )
+    # print(result.final_output)
+    task = input("Enter a task: ")
+    create_plan(task, "")
+    # plan_and_solve(
+    #     task,
+    #     [
+    #         researcher_tool,
+    #         read_file_tool,
+    #         write_file_tool,
+    #         tree_tool,
+    #         run_shell_tool,
+    #         delete_file_tool,
+    #         rename_file_tool,
+    #         make_directory_tool,
+    #         remove_directory_tool,
+    #     ],
+    # )
