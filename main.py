@@ -102,7 +102,7 @@ if __name__ == "__main__":
 
     result = Runner.run_sync(
         starting_agent=researcher,
-        input="How to pass images as inputs in OpenAI API?",
+        input="find me the paper where they show that surge in Russian wages in 2022-2023 is explained as post-COVID recovery. the authors are from Higher School of Economics",
         max_turns=1000,
     )
     print(result.final_output)
