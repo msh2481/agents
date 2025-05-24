@@ -8,5 +8,5 @@ dependencies = [
     "black>=25.1.0",
     "isort>=6.0.1",
     "loguru>=0.7.3",
-    "openai-agents>=0.0.16",
+    "openai-agents[viz,voice]>=0.0.16",
 ]
