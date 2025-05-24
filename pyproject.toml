@@ -6,7 +6,11 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "black>=25.1.0",
+    "duckduckgo-search>=8.0.2",
+    "html2text>=2025.4.15",
     "isort>=6.0.1",
     "loguru>=0.7.3",
     "openai-agents[viz,voice]>=0.0.16",
+    "playwright>=1.52.0",
+    "pyperclip>=1.9.0",
 ]
