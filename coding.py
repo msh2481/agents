@@ -57,6 +57,7 @@ def tree(path: str = ".", depth: int = 4) -> list[dict[str, Any]]:
             pass
         return total_size
 
+    _ = _scan(root, "", 1)
     lines = []
     for entry in entries:
         entry_path = entry["path"]
@@ -201,4 +202,4 @@ def run_shell_tool(command: List[str], cwd: str = None) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    print(tree())
+    print(tree("/Users/mike/Desktop/"))
