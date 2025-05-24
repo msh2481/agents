@@ -1,4 +1,6 @@
 import asyncio
+import queue
+import threading
 import time
 
 import pyperclip
@@ -6,7 +8,7 @@ from agents import Agent, function_tool, Runner, WebSearchTool
 from duckduckgo_search import DDGS
 from html2text import HTML2Text
 from loguru import logger
-from playwright.async_api import async_playwright
+from playwright.sync_api import sync_playwright
 
 
 def search(text: str) -> str:
@@ -28,6 +30,22 @@ def web_search_tool(text: str) -> str:
 
 
 def read_website_raw(url: str) -> str:
+    html = None
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(url)
+        for _ in range(10):
+            time.sleep(0.5)
+            current_html = page.content()
+            summary = f"len: {len(current_html)} start: {current_html[:20]} end: {current_html[-20:]}"
+            check = input(f"Does it look like a website? {summary}\n")
+            if check == "y":
+                html = current_html
+                break
+        browser.close()
+    if html is not None:
+        return html
     while True:
         input("Press Enter when website HTML is copied to clipboard...")
         clipboard_text = pyperclip.paste()
@@ -37,18 +55,26 @@ def read_website_raw(url: str) -> str:
         f"Read {len(clipboard_text)} characters from clipboard ({clipboard_text[:20]}...{clipboard_text[-20:]})"
     )
 
-    # async with async_playwright() as p:
-    #     browser = await p.chromium.launch(headless=True)
-    #     page = await browser.new_page()
-    #     await page.goto(url)
-    #     await asyncio.sleep(2)
-    #     html = await page.content()
-    #     await browser.close()
-    #     return html
-
 
 def read_website(url: str) -> str:
-    html = read_website_raw(url)
+    result_queue = queue.Queue()
+
+    def run_in_thread():
+        try:
+            result = read_website_raw(url)
+            result_queue.put(("success", result))
+        except Exception as e:
+            result_queue.put(("error", e))
+
+    thread = threading.Thread(target=run_in_thread)
+    thread.start()
+    thread.join()
+
+    result_type, result = result_queue.get()
+    if result_type == "error":
+        raise result
+    html = result
+
     cleaned = HTML2Text().handle(html)
     lines = cleaned.split("\n")
     filtered = [line for line in lines if len(line.strip()) > 10]
@@ -61,13 +87,16 @@ def read_website(url: str) -> str:
 )
 def read_website_tool(url: str) -> str:
     logger.success(f"Reading website {url}")
-    return read_website(url)
+    assert isinstance(url, str), f"URL must be a string, got {type(url)}"
+    result = read_website(url)
+    assert isinstance(result, str), f"Result must be a string, got {type(result)}"
+    return result
 
 
 if __name__ == "__main__":
     with open("website.html", "w") as f:
         f.write(
             read_website(
-                "https://platform.openai.com/docs/guides/images-vision?api-mode=responses"
+                "https://tvtropes.org/pmwiki/pmwiki.php/Main/BreakingTheFourthWall"
             )
         )

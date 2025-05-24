@@ -59,7 +59,7 @@ researcher = Agent(
         "You will be given a search request and your responsibility is to find the required information on the internet.\n"
         "1. Identify the ways to approach this search. Of course, just calling web search with the request text is always an option, but often that will not be enough. Be creative and strategic. Check your plan with `verify_plan` tool.\n"
         "2. Run the searches you planned using `web_search` tool, and analyze whether you found the information you were looking for.\n"
-        "3. If some items seem relevant, use `read_website` tool to read the full content of those pages. Again, check whether that's what you were looking for.\n"
+        "3. If some items seem relevant, use `read_website` tool to read the full content of those pages. Again, check whether that's what you were looking for. \n"
         "3. If the results are not satisfactory, go to step 1 again. Repeat until success (though not more than 10 times).\n"
         "4. Give a detailed summary of the results you found. Quote the relevant parts, give links to the sources. Don't rely on your general knowledge to provide the answers. Everything you return as output should be based on the outputs of 'web_search' tool.\n"
         "5. Check the results with `verify_search_results` tool. If it doesn't find the results satisfactory, reflect on your mistakes and go to step 1 again. Otherwise, the task is done.\n"
