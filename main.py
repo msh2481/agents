@@ -2,8 +2,9 @@ import logging
 import sys
 from datetime import datetime
 from pprint import pprint
+from typing import Any
 
-from agents import Agent, function_tool, WebSearchTool
+from agents import Agent, function_tool, Runner, Tool, WebSearchTool
 from loguru import logger
 from websearch import read_website_tool, web_search_tool
 
@@ -96,6 +97,108 @@ supervisor = Agent(
     tools=[researcher_tool],
     model="o4-mini",
 )
+
+
+def get_user_plan_approval(plan: str) -> dict[str, Any]:
+    """Shows plan to user and gets their approval with optional suggestions."""
+    print("\n" + "=" * 60)
+    print("PROPOSED PLAN:")
+    print("=" * 60)
+    print(plan)
+    print("=" * 60)
+
+    response = input(
+        "\nApprove this plan? (y/Y to approve, or describe changes needed): "
+    ).strip()
+
+    if response.lower() == "y":
+        return {"approval": True, "suggestions": ""}
+    else:
+        return {"approval": False, "suggestions": response}
+
+
+@function_tool(
+    name_override="get_user_plan_approval",
+    description_override="Shows a plan to the user and gets their approval with optional suggestions for changes.",
+)
+def get_user_plan_approval_tool(plan: str) -> dict[str, Any]:
+    return get_user_plan_approval(plan)
+
+
+def plan_and_solve(task: str, tools: list[Tool]) -> bool:
+    """Creates a plan, gets user approval, then executes it with iterative feedback."""
+
+    user_feedback = ""
+    while True:
+        # Phase 1: Plan creation and approval
+        planner = Agent(
+            name="Planner",
+            instructions=(
+                "Your job is to create a high-level plan for the given task. "
+                "DON'T write any code yet."
+                "Break down the task into clear, actionable steps. "
+                "Be specific about what needs to be done, but don't actually do it yet. "
+                "Output your plan as a numbered list with clear descriptions of each step."
+            ),
+            model="gpt-4.1",
+        )
+
+        plan_approved = False
+        while not plan_approved:
+            print(f"\n🤔 Creating plan for task: {task}")
+            plan_result = Runner.run_sync(
+                starting_agent=planner,
+                input=f"Create a plan for this task: {task}\n\nHere is the user feedback from the previous iteration: {user_feedback}",
+            )
+
+            approval_result = get_user_plan_approval(plan_result.final_output)
+            if approval_result["approval"]:
+                plan_approved = True
+                approved_plan = plan_result.final_output
+            else:
+                logger.debug(
+                    f"\n📝 Plan needs revision: {approval_result['suggestions']}"
+                )
+                planner.instructions += f"\n\nYour previous plan was:\n{plan_result.final_output}\n\nThe user provided this feedback on your previous plan: {approval_result['suggestions']}\nPlease revise the plan accordingly."
+
+        print(f"\n✅ Plan approved! Proceeding with execution...")
+
+        # Phase 2: Plan execution
+        executor = Agent(
+            name="Executor",
+            instructions=(
+                f"Here is the task:\n{task}\n\n"
+                f"Here is the approved plan:\n\n{approved_plan}\n\n"
+                "Complete the task using the tools provided, according to the plan."
+                "Be methodical and thorough. When you're done, provide a summary of what was accomplished."
+            ),
+            tools=tools,
+            model="gpt-4.1",
+        )
+
+        execution_result = Runner.run_sync(
+            starting_agent=executor,
+            input=f"Execute the approved plan for: {task}",
+            max_turns=100,
+        )
+
+        # Phase 3: User verification and fixes
+        print("\n" + "=" * 60)
+        print("EXECUTION COMPLETED:")
+        print("=" * 60)
+        print(execution_result.final_output)
+        print("=" * 60)
+
+        user_feedback = input(
+            "\nIs the task completed satisfactorily? (y/Y if yes, or describe what needs to be fixed): "
+        ).strip()
+
+        if user_feedback.lower() == "y":
+            return True
+        else:
+            logger.debug(f"\n🔧 Making adjustments based on feedback: {user_feedback}")
+            continue
+
 
 if __name__ == "__main__":
     from agents.run import Runner
