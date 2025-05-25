@@ -9,6 +9,7 @@ import subprocess
 from typing import Any, Dict, List
 
 from agents import function_tool
+from patching import apply_patch
 
 
 def tree(path: str = ".", depth: int = 4) -> list[dict[str, Any]]:
@@ -199,6 +200,14 @@ def remove_directory_tool(path: str) -> str:
 )
 def run_shell_tool(command: List[str], cwd: str = None) -> Dict[str, Any]:
     return run_shell(command, cwd)
+
+
+@function_tool(
+    name_override="apply_patch",
+    description_override="Parse and apply a patch string with create/delete/update file operations.",
+)
+def apply_patch_tool(patch: str) -> str:
+    return apply_patch(patch, read_file, write_file, delete_file)
 
 
 if __name__ == "__main__":
